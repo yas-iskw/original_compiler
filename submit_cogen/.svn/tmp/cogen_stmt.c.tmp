@@ -1,0 +1,137 @@
+char *op_kind_to_jump(op_kind_t kind)
+{
+  switch(kind)
+    {
+    case op_kind_lt:
+      return "jl";
+    case op_kind_le:
+      return "jle";
+    case op_kind_gt:
+      return "jg";
+    case op_kind_ge:
+      return "jge";
+    case op_kind_eq:
+      return "je";
+    case op_kind_neq:
+      return "jne";
+    }
+}
+
+
+int cogen_stmt_if(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  int m,n;
+  m = eat_label(lg);
+  n = eat_label(lg);
+  cogen_expr(fp,s->u.i.e,env,lg);
+  op_kind_t kind = s->u.i.e->kind;
+  fprintf(fp,"cmpl\n /*ここに後で比較対象を*/",);
+  fprintf(fp,"%s .L%d\n",op_kind_to_jump(kind),m);
+  cogen_stmt(fp,s->u.i.th,env,lg);
+  fprintf(fp,"jmp .L%d\n",n);
+  fprintf(fp,".L%d:\n",m);
+  cogen_stmt(fp,s->u.i.el,env,lg);
+  fprintf(fp,".L%d:\n",n);
+  /*intを返すらしい*/
+  return 0;
+}
+
+int cogen_stmt_while(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  int m,n;
+  m = eat_label(lg);
+  n = eat_label(lg);
+  pop_label(lg,m,n);
+  
+  cogen_expr(fp,s->u.w.e,env);
+  op_kind_t kind = s->u.w.e->kind;
+  fprintf(fp,".L%d:\n",m);
+  fprintf(fp,"cmpl\n /*ここに後で比較対象を*/");
+  fprintf(fp,"%s .L%d\n",op_kind_to_jump(kind),n);
+  cogen_stmt(fp,s->u.w.body,env,lg);
+  fprintf(fp,"jmp .L%d\n",m);
+  fprintf(fp,".L%d:\n",n);
+  //...
+  rem_label(lg);//スタックを一階層上に
+  return 0;
+}
+
+
+int cogen_stmt_compound(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  int sz = var_decl_list_sz(s->u.c.decls);
+  int i;
+  for(i=0;i<sz;i++)
+    {
+      var_decl_t l = var_decl_list_get(s->u.c.decls,i);
+      /*ここで宣言した変数のメモリを確保する?*/
+    }
+  sz = stmt_list_sz(s->u.c.body);
+  for(i=0;i<sz:i++)
+    {
+      stmt_t x = stmt_list_get(s->u.c.body,i);
+      cogen_stmt(fp,x,env,lg);
+    }
+}
+
+
+
+int cogen_stmt_expr(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  /*cogen_exprとの違いがよく分からんので怪しい*/
+  cogen_expr(fp,s->u.e,env,lg);
+}
+
+
+int cogen_stmt_break(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  fprintf(fp,"jmp .L%d\n",cur_label_b(lg));
+}
+
+
+int cogen_stmt_continue(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  fprintf(fp,"jmp .L%d\n",cur_label_c(lg));
+}
+
+/*constracter*/
+label_gen_t mk_label(void)
+{
+  label_gen_t l = (label_gen_t)safe_malloc(sizeof(struct label_gen));
+  l->label = 1;
+  l->scope.i = -1;
+  return l;
+}
+
+//pop label
+void pop_label(label_gen_t lg,int m,int n)
+{
+  ++lg->scope.i;
+  /* if(i>=100) exit(1); */
+  int i = lg->scope.i;
+  lg->scope.c[i] = m;
+  lg->scope.b[i] = n;
+}
+
+
+//push label
+int cur_label_c(label_gen_t lg)
+{
+  int n = lg->scope.c[lg->scope.i];
+  return n;
+}
+
+int cur_label_b(label_gen_t lg)
+{
+  int n = lg->scope.b[lg->scope.i];
+  return n;
+}
+
+
+void rem_label(label_gen_t lg)
+{
+  --lg->scope.i;
+}
+
+
+

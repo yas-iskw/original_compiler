@@ -1,0 +1,130 @@
+	.file	"f43.c"
+	.text
+.globl f
+	.type	f, @function
+f:
+	pushl	%ebp
+	movl	%esp, %ebp
+	subl	$48, %esp
+	movl	-4(%ebp),%ecx
+	movl	$1,-28(%ebp)
+	movl	$1,-32(%ebp)
+	movl	$2,-36(%ebp)
+	movl	-36(%ebp),%edx
+	addl	%edx,-32(%ebp)
+	movl	-32(%ebp),%edx
+	cmpl	%edx,-28(%ebp)
+	setne	%al
+	movzbl	%al,%edx
+	movl	%edx,-28(%ebp)
+	movl	-28(%ebp),%ecx
+	movl	%ecx,-4(%ebp)
+	movl	-8(%ebp),%ecx
+	movl	$1,-28(%ebp)
+	movl	$2,-32(%ebp)
+	movl	-32(%ebp),%edx
+	addl	%edx,-28(%ebp)
+	movl	$1,-32(%ebp)
+	movl	$2,-36(%ebp)
+	movl	-36(%ebp),%edx
+	addl	%edx,-32(%ebp)
+	movl	-32(%ebp),%edx
+	cmpl	%edx,-28(%ebp)
+	sete	%al
+	movzbl	%al,%edx
+	movl	%edx,-28(%ebp)
+	movl	-28(%ebp),%ecx
+	movl	%ecx,-8(%ebp)
+	movl	-12(%ebp),%ecx
+	movl	$1,-28(%ebp)
+	movl	$2,-32(%ebp)
+	movl	-32(%ebp),%edx
+	addl	%edx,-28(%ebp)
+	movl	$1,-32(%ebp)
+	movl	$2,-36(%ebp)
+	movl	-36(%ebp),%edx
+	addl	%edx,-32(%ebp)
+	movl	-32(%ebp),%edx
+	cmpl	%edx,-28(%ebp)
+	setle	%al
+	movzbl	%al,%edx
+	movl	%edx,-28(%ebp)
+	movl	-28(%ebp),%ecx
+	movl	%ecx,-12(%ebp)
+	movl	-16(%ebp),%ecx
+	movl	$1,-28(%ebp)
+	movl	$2,-32(%ebp)
+	negl	-32(%ebp)
+	movl	-32(%ebp),%edx
+	subl	%edx,-28(%ebp)
+	movl	$1,-32(%ebp)
+	negl	-32(%ebp)
+	negl	-32(%ebp)
+	movl	$2,-36(%ebp)
+	movl	-36(%ebp),%edx
+	addl	%edx,-32(%ebp)
+	movl	-32(%ebp),%edx
+	cmpl	%edx,-28(%ebp)
+	setge	%al
+	movzbl	%al,%edx
+	movl	%edx,-28(%ebp)
+	movl	-28(%ebp),%ecx
+	movl	%ecx,-16(%ebp)
+	movl	-20(%ebp),%ecx
+	movl	$1,-28(%ebp)
+	cmpl	$0,-28(%ebp)
+	sete	%al
+
+	movzbl	%al,-28(%ebp)
+	movl	$2,-32(%ebp)
+	cmpl	$0,-32(%ebp)
+
+	sete	%al
+	movzbl	%al,-32(%ebp)
+	movl	-32(%ebp),%edx
+	cmpl	%edx,-28(%ebp)
+	sete	%al
+	movzbl	%al,%edx
+	movl	%edx,-28(%ebp)
+	movl	-28(%ebp),%ecx
+	movl	%ecx,-20(%ebp)
+	movl	-4(%ebp),%ecx
+	movl	$10000,-28(%ebp)
+	movl	%ecx,%eax
+	imull	-28(%ebp),%eax
+	movl	%eax,%ecx
+	movl	-8(%ebp),%edx
+	movl	%edx,-28(%ebp)
+	movl	$1000,-32(%ebp)
+	movl	-32(%ebp),%edx
+	movl	-28(%ebp),%eax
+	imull	%edx,%eax
+	movl	%eax,-28(%ebp)
+	addl	-28(%ebp),%ecx
+	movl	-12(%ebp),%edx
+	movl	%edx,-28(%ebp)
+	movl	$100,-32(%ebp)
+	movl	-32(%ebp),%edx
+	movl	-28(%ebp),%eax
+	imull	%edx,%eax
+	movl	%eax,-28(%ebp)
+	addl	-28(%ebp),%ecx
+	movl	-16(%ebp),%edx
+	movl	%edx,-28(%ebp)
+	movl	$10,-32(%ebp)
+	movl	-32(%ebp),%edx
+	movl	-28(%ebp),%eax
+	imull	%edx,%eax
+	movl	%eax,-28(%ebp)
+	addl	-28(%ebp),%ecx
+	movl	-20(%ebp),%edx
+	movl	%edx,-28(%ebp)
+	addl	-28(%ebp),%ecx
+	movl	%ecx,%eax
+	jmp	.RETURN0
+.RETURN0:
+	leave
+	ret
+	.size	f, .-f
+	.ident	"GCC: (Ubuntu 4.4.3-4ubuntu5.1) 4.4.3"
+	.section	.note.GNU-stack,"",@progbits

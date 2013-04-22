@@ -1,0 +1,247 @@
+#include <stdio.h>
+#include "cogen_fun.h"
+
+char *op_kind_to_jump(op_kind_t kind)
+{
+  switch(kind)
+    {
+    case op_kind_lt:
+      return "jl";
+    case op_kind_le:
+      return "jle";
+    case op_kind_gt:
+      return "jg";
+    case op_kind_ge:
+      return "jge";
+    case op_kind_eq:
+      return "je";
+    case op_kind_neq:
+      return "jne";
+    }
+}
+
+
+int cogen_stmt(FILE *fp, stmt_t s, env_t env, label_gen_t lg)
+{
+  switch(s->kind)
+    {
+    case stmt_kind_return:
+      return cogen_stmt_return(fp,s,env,lg);
+    case stmt_kind_empty:
+      return cogen_stmt_empty(fp,s,env,lg);
+    case stmt_kind_continue:
+      return cogen_stmt_continue(fp,s,env,lg);
+    case stmt_kind_break:
+      return cogen_stmt_break(fp,s,env,lg);
+    case stmt_kind_expr:
+      return cogen_stmt_expr(fp,s,env,lg);
+    case stmt_kind_compound:
+      return cogen_stmt_compound(fp,s,env,lg);
+    case stmt_kind_if:
+      return cogen_stmt_if(fp,s,env,lg);
+    case stmt_kind_while:
+      return cogen_stmt_while(fp,s,env,lg);
+    default;
+      assert(0);
+    }
+}
+
+
+int cogen_stmt_if(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  int m,n;
+  m = eat_label(lg);
+  n = eat_label(lg);
+  cogen_expr(fp,s->u.i.e,env,lg);
+  op_kind_t kind = s->u.i.e->kind;
+  //cmplはここでは必要ないかも
+  fprintf(fp,"cmpl\n /*ここに後で比較対象を*/",);
+  fprintf(fp,"%s .L%d\n",op_kind_to_jump(kind),m);
+  cogen_stmt(fp,s->u.i.th,env,lg);
+  fprintf(fp,"jmp .L%d\n",n);
+  fprintf(fp,".L%d:\n",m);
+  cogen_stmt(fp,s->u.i.el,env,lg);
+  fprintf(fp,".L%d:\n",n);
+  /*intを返すらしい*/
+  return 0;
+}
+
+int cogen_stmt_while(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  int m,n;
+  m = eat_label(lg);
+  n = eat_label(lg);
+  pop_label(lg,m,n);
+  
+  cogen_expr(fp,s->u.w.e,env);
+  op_kind_t kind = s->u.w.e->kind;
+  fprintf(fp,".L%d:\n",m);
+  //やはりcmplは必要ないかも
+  fprintf(fp,"cmpl\n /*ここに後で比較対象を*/");
+  fprintf(fp,"%s .L%d\n",op_kind_to_jump(kind),n);
+  cogen_stmt(fp,s->u.w.body,env,lg);
+  fprintf(fp,"jmp .L%d\n",m);
+  fprintf(fp,".L%d:\n",n);
+  //...
+  rem_label(lg);//スタックを一階層上に
+  return 0;
+}
+
+
+int cogen_stmt_compound(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  int sz;
+  int i;
+  for(i=0;i<sz;i++)
+    {
+      var_decl_t l = var_decl_list_get(s->u.c.decls,i);
+      
+      }*/
+
+  set_env_vars(s->u.c.decls,env);//宣言された変数を環境に登録、ここではメモリ確保必要ないはず
+  sz = stmt_list_sz(s->u.c.body);
+  for(i=0;i<sz:i++)
+    {
+      stmt_t x = stmt_list_get(s->u.c.body,i);
+      cogen_stmt(fp,x,env,lg);
+    }
+  delete_env_vars(env);//スコープ脱出の際に一番上のスタックを環境から削除
+}
+
+
+
+int cogen_stmt_expr(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  /*cogen_exprとの違いがよく分からんので怪しい*/
+  cogen_expr(fp,s->u.e,env,lg);
+  return 0;
+}
+
+
+int cogen_stmt_break(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  fprintf(fp,"jmp .L%d\n",cur_label_b(lg));
+  return 0;
+}
+
+
+int cogen_stmt_continue(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  fprintf(fp,"jmp .L%d\n",cur_label_c(lg));
+  return 0;
+}
+
+
+int cogen_stmt_empty(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  /*よく分からん、謎*/
+  return 0;
+}
+
+int cogen_stmt_return(FILE *fp,stmt_t s,env_t env,label_gen_t lg)
+{
+  cogen_stmt_expr(fp,s,env,lg);
+  /*この後%eaxに渡す感じ？常に結果が%exaに入っていれば問題なし*/
+  return 0;
+}
+
+
+
+
+char *cogen_expr(FILE *fp,expr_t e,env_t env)
+{
+  switch(e->kind)
+    {
+    case expr_kind_int_literal:
+      return cogen_expr_int_literal(fp,e,env);
+    case expr_kind_id:
+      return cogen_expr_id(fp,e,env);
+    case expr_kind_paren:
+      return cogen_expr(fp,e->u.p,env);
+    case expr_kind_app:
+      return cogen_expr_app(fp,e,env);
+    default:
+    assert(0);
+    }
+}
+
+
+
+
+
+char *cogen_expr_int_literal(FILE *fp,expr_t e,env_t env)
+{
+  char str[16];
+  pos_e(str,e,env);//数字を格納すべきレジスタを示している？？
+  fprintf(fp,"\tmovl\t$%d,%s\n",atoi(e->u.s),str);
+}
+
+
+char *cogen_expr_id(FILE *fp,expr_t e,env_t env)
+{
+  char str1[16];
+  char str2[16];
+  pos_v(str1,e->u.s,env);
+  pos_e(str2,e,env);
+  fprintf(fp,"\tmovl\t%s,%s\n",str1,str2);//読んできたメモリをどっかのレジスタに格納する
+
+}
+
+
+
+
+char *cogen_expr_app(FILE *fp,expr_t e,env_t env)
+{
+  if(e->u.a.o == op_kind_fun)
+    {
+      cogen_expr_call(fp,e,env);
+    }
+  else
+    {
+      char str1[16];
+      char str2[16];
+      cogen_expr(fp,expr_list_get(e->u.a.args,0),env);
+      pos_e(str1,expr_list_get(e->u.a.args,0),env);
+      if(expr_list_get(e->u.a.args,1) != NULL)
+	{
+	  cogen_expr(fp,expr_list_get(e->u.a.args,1),env);
+	  pos_e(str2,expr_list_get(e->u.a.args,1),env);
+	  //ここでなんかしらの二項演算を行う感じ,種類はe->u.a.oに従う
+	  return;
+	}
+      else
+	{
+	  //ここで単行演算を行う感じ,種類はe->u.a.oに従う
+	}
+    }
+}
+
+
+
+
+//関数呼び出しのcogen lgはいらないかな？
+int cogen_expr_call(FILE *fp, expr_t e, env_t env){
+  int i;
+  int sz = expr_list_sz(e->u.a.args);
+  char str[16];
+  
+  for(i=sz-1;i>=0;i--){
+    cogen_expr(fp, expr_list_get(e->u.a.args,i), env);
+    pos_e(str, expr_list_get(e->u.a.args,i) , env);
+    fprintf(fp,"\tpushl\t%s\n",str);
+  }
+  fprintf(fp,"\tcall\t%s\n",e->u.a.f);
+  pos_e(str, e, env);
+  fprintf(fp,"\tmovl\t%%eax, %s\n",str);
+}
+
+
+
+//二項演算子によって命令を発行する関数
+char *bin_op_to_order(op_kind_t kind)
+{
+  switch(kind)
+    {
+    case :
+      return "";
+op_kind_bin_plus 

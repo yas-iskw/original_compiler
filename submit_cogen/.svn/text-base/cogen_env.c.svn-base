@@ -1,0 +1,172 @@
+#include <stdio.h>
+#include <string.h>
+#include <assert.h>
+#include "syntree.h"
+#include "struct_analyzer.h"
+#include "tokenizer.h"
+#include "util.h"
+#include "list.h"
+#include "cogen_fun.h"
+#include "cogen_env.h"
+//最後にヘッダを確認する
+
+
+
+
+env_t mk_env(int address){
+	env_t env = (env_t)safe_malloc(sizeof(struct env));
+	
+	env->var_name = NULL;
+	env->val = 4;
+	env->scope = 0;
+	env->address = address;
+	env->next = NULL;
+	
+	return env;
+}
+
+env_t set_env_params(var_decl_list_t params,env_t env){
+	env_t pre_env;	
+	//int max_scope = 0;
+	int value = 8;
+	int address = env->address;
+		
+	//paramsを入れる。
+	int size = var_decl_list_sz(params);
+	int i;
+	char *str;
+	for(i=0;i<size;i++){
+		str = var_decl_list_get(params,i)->v;
+		env->var_name = (char *)safe_malloc(sizeof(char) * (strlen(str)+1) );
+		env->scope = 0;
+		strcpy(env->var_name,str);
+		env->val = value;
+		value += 4;
+		env->address = address;
+		pre_env = (env_t)safe_malloc(sizeof(struct env));
+		pre_env->next = env;
+		
+		env = pre_env;
+	}
+	
+	env->var_name = NULL;
+	env->val = -4;
+	env->scope = 0;
+	env->address = address;
+	
+	return env;
+}
+
+/* 引数と、関数内で宣言された変数の名前がかぶっていないかをチェックする。かぶっていた場合1、そうでない場合0を返す。 */
+int env_judge(char* str, env_t env){
+  while(env->scope != 0){
+	if(env->next == NULL) return 0;
+	env = env->next;	
+  }
+  if( read_env(str,env) == 0 ) return 0;
+  return 1;
+}
+
+
+env_t set_env_vars(var_decl_list_t params,env_t env){
+	env_t pre_env;	
+	int max_scope = env->scope+1;
+	int value = env->val;
+	int address = env->address;
+		
+	//paramsを入れる。
+	int size = var_decl_list_sz(params);
+	int i;
+	char *str;
+	for(i=0;i<size;i++){
+		str = var_decl_list_get(params,i)->v;
+		if( env_judge(str,env) ){
+		  printf("引数と同じ名前で宣言しないでください！");
+		  exit(1);
+		}    //引数とのチェック
+		env->var_name = (char *)safe_malloc(sizeof(char) * (strlen(str)+1) );
+		strcpy(env->var_name,str);
+		env->val = value;
+		value -= 4;
+		env->scope = max_scope;
+		env->address = address;
+		pre_env = (env_t)safe_malloc(sizeof(struct env));
+		pre_env->next = env;
+		
+		env = pre_env;
+	}
+	
+	env->var_name = NULL;
+	env->val = value;
+	env->scope = max_scope;
+	env->address = address;
+	
+	return env;
+}
+
+env_t delete_env_vars(env_t env){
+	int max_scope = env->scope;
+	env_t pre_env = env;
+	while(env->scope < max_scope){
+		pre_env = env;
+		if(env->next == NULL) break;
+		env = env->next;
+	}
+	
+	env = pre_env;
+	env->var_name = NULL;
+	//env->valそのまま
+	if(max_scope == 0){
+		env->scope = 0;	
+	}else{
+		env->scope = max_scope-1;
+	}
+	
+	return env;
+}
+
+int read_env(char *var,env_t env){
+	for(; env->next != NULL ;){
+		env = env->next;
+		if( !strcmp(env->var_name,var) ) return env->val;
+	}
+	return 0;	//存在しない
+}
+
+int address_env(env_t env){
+  return env->address;
+}
+
+//pos_vのstrは16バイトほど確保しておいてください。
+void pos_v(char* str, char *var, env_t env){
+  int n = read_env(var,env);
+  if(n == 0){
+  	printf("宣言されてません！\n");
+	exit(1);
+  } 
+  sprintf(str,"%d(%%ebp)", n );
+};
+
+//pos_eのstrは16バイトほど確保しておいてください。	ecx,ebxのみ使用
+void pos_e(char *str, expr_t e,env_t env){
+  if( e->info->rel_val == -4 ){
+    sprintf(str,"%%ecx");
+  /*}else if( e->info->rel_val == -8 ){
+    sprintf(str,"%%ebx");*/
+  }else{
+    sprintf(str,"%d(%%ebp)", address_env(env) + e->info->rel_val );
+  }
+}
+
+//両方memory:1 それ以外:0		ecx,ebxのみ使用
+int judge_e(expr_t e1,expr_t e2){
+	if( e1->info->rel_val < -4 &&  e2->info->rel_val < -4 ) return 1;
+	return 0;
+}
+
+//レジスタなら:1 それ以外:0		ecx,ebxのみ使用
+int judge_c(char *str){
+	if( !strcmp("%ecx",str) /*|| !strcmp("%ebx",str)*/ ) return 1;
+	return 0;
+}
+

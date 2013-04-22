@@ -1,0 +1,111 @@
+#include <assert.h>
+#include "syntree.h"
+#include "struct_analyzer.h"
+#include "tokenizer_h"
+#include "util.h"
+#include "list.h"
+#include "cogen_fun.h"
+
+
+int cogen_fun_def(FILE *fp, fun_def_t d)
+{
+  env_t env = mk_env();
+  
+  cogen_fun_def_header(fp,d->f);
+  cogen_prologue(fp,d);
+  //env_pro
+  cogen_stmt(fp,d->body,env);
+  //env_epi
+  cogen_epilogue(fp);
+  cogen_fun_def_trailer(fp,d->f);
+  return 0;
+}
+
+
+int cogen_progmram(FILE *fp, program_t p)
+{
+  cogen_program_header(fp,p->filaname);
+  fun_def_list_t ds = p->fun_defs;
+  int n = fun_def_list_sz(ds);
+  int i;
+  for(i=0;i<n;i++)
+    {
+      fun_def_t d = fun_def_list_get(ds,i);
+      cogen_fun_def(fp,d);
+    }
+  cogen_program_trailer(fp);
+  return 0;
+}
+
+void cogen_program_header(FILE *fp, char* filename){
+	fprintf(fp,"	.file	\"%s\"\n	.text\n",filename);
+}
+
+//Ubuntu...  は後で変数化しましょう
+void cogen_program_trailer(FILE fp){
+	fprintf(fp,"	.ident	\"GCC: (Ubuntu 4.4.3-4ubuntu5.1) 4.4.3\"\n	.section	.note.GNU-stack,\"\",@progbits\n");
+}
+
+void cogen_fun_def_header(FILE fp, char* fun_name){
+	fprintf(fp,"	.globl %s\n	.type	%s, @function\n%s:\n",fun_name,fun_name,fun_name);
+}
+
+void cogen_fun_def_trailer(FILE fp, char* fun_name){
+	fprintf(fp,"	.size	%s, .-%s\n",fun_name,fun_name);
+}
+
+void cogen_prologue(FILE* fp, fun_def_t d){
+	int n = ( var_decl_list_sz(d->params)+3 ) * 4;
+	
+	fprintf(fp,"	pushl	%%ebp\n	movl	%%esp, %%ebp\n");
+	fprintf(fp,"	subl	$%d, %%esp\n",n);
+}
+
+void cogen_epilogue(FILE* fp){
+	fprintf(fp,"	leave\n	ret\n");
+}
+
+
+
+int cogen_stmt(FILE *fp, stmt_t s, env_t env)
+{
+  switch(s->kind)
+    {
+    case stmt_kind_return:
+      return cogen_stmt_ return(fp,s,env);
+    case stmt_kind_empty:
+      return cogen_stmt_empty(fp,s,env);
+    case stmt_kind_continue:
+      return cogen_stmt_continue(fp,s,env);
+    case stmt_kind_break:
+      return cogen_stmt_break(fp,s,env);
+    case stmt_kind_expr:
+      return cogen_stmt_expr(fp,s,env);
+    case stmt_kind_compound:
+      return cogen_stmt_compound(fp,s,env);
+    case stmt_kind_if:
+      return cogen_stmt_if(fp,s,env);
+    case stmt_kind_while:
+      return cogen_stmt_while(fp,s,env);
+    default;
+      assert(0);
+    }
+}
+
+
+char *cogen_expr(FILE *fp,expr_t e,env_t env)
+{
+  switch(e->kind)
+    {
+    case expr_kind_int_literal:
+      return cogen_expr_int_literal(fp,e,env);
+    case expr_kind_id:
+      return cogen_expr_id(fp,e,env);
+    case expr_kind_paren:
+      return cogen_expr(fp,e->u.p,env);
+    case expr_kind_app:
+      return cogen_expr_app(fp,e,env);
+    default;
+    assert(0);
+    }
+}
